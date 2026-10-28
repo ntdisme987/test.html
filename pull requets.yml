@@ -1,0 +1,43 @@
+name: Pull Request
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  build:
+    name: Build Preview Deployment
+    uses: ./.github/workflows/build.yml
+    with:
+      development: true
+
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: setup hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.139.4"
+          extended: true
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - name: Install dependencies
+        run: "pnpm i"
+      - name: Build site
+        env:
+          HUGO_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: "pnpm build"
+      - name: Check for broken external links
+        run: pnpm linkrot
+      - name: Code Quality
+        run: "pnpm prettier --check ."

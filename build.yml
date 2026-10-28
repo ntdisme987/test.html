@@ -1,0 +1,68 @@
+name: Build
+on:
+  push:
+    branches: ["main"]
+  workflow_call:
+    inputs:
+      development:
+        type: boolean
+        default: false
+
+jobs:
+  build:
+    name: Build Site
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Setup Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.139.4"
+          extended: true
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "pnpm"
+      - name: Install dependencies
+        run: "pnpm i -P"
+      - name: Build with Hugo
+        env:
+          HUGO_GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HUGO_CACHEDIR: ${{ runner.temp }}/hugo_cache
+          HUGO_ENVIRONMENT: ${{ inputs.development && 'development' || 'production' }}
+          ACTOR: ${{ github.event.pull_request.user.login }}
+          REF: ${{ github.event.pull_request.head.ref }}
+          BASE_REPO: ${{ github.repository }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+        run: |
+          echo "Building for $HUGO_ENVIRONMENT"
+          if [ "$HUGO_ENVIRONMENT" = "production" ]; then
+            export HUGO_PAGE_URL="https://galaxypedia.org"
+          else
+            if [ "$BASE_REPO" = "$HEAD_REPO" ]; then
+              slug="${REF}"
+            else
+              slug="${ACTOR}-${REF}"
+            fi
+
+            trimmed=${slug:0:28} # cloudflare pages trims the subdomain to 28 characters
+            result=${trimmed%-}
+
+            export HUGO_BASE_URL="https://${result}.galaxypedia.pages.dev"
+          fi
+          echo $HUGO_BASE_URL
+          hugo --minify --baseURL "$HUGO_BASE_URL"
+      - name: Build Pagefind index
+        run: pnpm pagefind
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pages-build
+          path: ./public

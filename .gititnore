@@ -1,0 +1,17 @@
+.DS_store
+public/
+.direnv/
+.devenv/
+node_modules/
+.mypy_cache/
+resources/
+hugo_stats.json
+.cache/
+.pnpm-store/
+
+# .vscode
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+elasticsearch/.env
+elasticsearch/certs
